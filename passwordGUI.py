@@ -6,6 +6,7 @@ from email_function import send_email
 import random
 import string
 import openpyxl
+import re
 
 # --- classes ---
 
@@ -36,19 +37,19 @@ class MyWindow:
 
     def generate_passwords(self):
         def generate_password():
-            length = 10
 
+            length = 9
+            symbol_list = r"""#%&!@?*$"""
             lower = string.ascii_lowercase
             upper = string.ascii_uppercase
             num = string.digits
-            symbols = string.punctuation
+            symbols = random.sample(symbol_list, 1)
+            first = lower + upper + num
 
-            all = lower + upper + num + symbols
-
-            temp = random.sample(all, length)
+            temp = random.sample(first, length)
 
             # create the password
-            password = "".join(temp)
+            password = "".join(temp + symbols)
 
             # return the password
             return (password)

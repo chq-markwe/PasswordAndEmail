@@ -2,11 +2,10 @@ import tkinter as tk
 from tkinter.filedialog import askopenfilename
 from tkinter.filedialog import asksaveasfilename
 import pandas as pd
-from email_function import send_email
+import win32com.client
 import random
 import string
 import openpyxl
-import re
 
 # --- classes ---
 
@@ -22,7 +21,18 @@ class MyWindow:
 
         self.text = tk.Text(self.parent)
         self.text.pack()
-
+        self.text.insert('insert', '\n'+ '  Instructions for how to use this Utility' + '\n' + '\n' \
+        + '  *  Click on the Generate Passwords button'+ '\n' + '\n'\
+        + '  *  Select the file in the windows explorer' + '\n' + '\n'\
+        + '  *  Click Open' + '\n'+ '\n'\
+        + '  *  Select the location and name of the Save file' + '\n' + '\n'\
+        + '      * You should see "Passwords Generated" display here' + '\n'+ '\n'\
+        + '  When passwords generated have been updated in ECCO run this utility again' + '\n'+ '\n'\
+        + '  *  Select the Send Emails button'+ '\n'+ '\n'\
+        + '  *  Select the file saved in the previous step and click Open' + '\n'+ '\n'\
+        + '      * You should see "Emails Sent" display here' + '\n' + '\n'+ '\n'\
+        + '  ***Note: You may have to scroll past the displayed data in order to see'+ '\n' \
+        + '  the confirmation messages'+ '\n' + '\n'+ '\n')
         # Generate Passwords button
         self.script_button = tk.Button(self.parent, text='Generate Passwords', command=self.generate_passwords)
         self.script_button.pack()
@@ -95,18 +105,70 @@ class MyWindow:
 
     def send_emails(self):
 
-        # Ask for input file
-        email_list = askopenfilename(filetypes=[('Excel', ('*.xls', '*.xslm', '*.xlsx')), ('CSV', '*.csv',)])
+        def send_email():
+            # Generate the email
+            outlook = win32com.client.Dispatch('outlook.application')
 
-        if email_list:
-            if email_list.endswith('.csv'):
-                self.df = pd.read_csv(email_list)
-            else:
-                self.df = pd.read_excel(email_list)
+            # choose sender account
+            send_account = None
+            for account in outlook.Session.Accounts:
+                if account.DisplayName == 'eccosupport@expeditors.com':
+                    send_account = account
+                    break
 
-            self.filename = email_list
+            # reading the spreadsheet
+            email_list = askopenfilename(filetypes=[('Excel', ('*.xls', '*.xslm', '*.xlsx')), ('CSV', '*.csv',)])
 
-        send_email(email_list)
+            if email_list:
+                if email_list.endswith('.csv'):
+                    self.df = pd.read_csv(email_list)
+                else:
+                    self.df = pd.read_excel(email_list)
+
+                self.filename = email_list
+
+            # getting the info from the spreadsheet
+            first_names = self.df['FIRST NAME'].tolist()
+            usernames = self.df['USERNAME'].tolist()
+            emails = self.df['EMAIL'].tolist()
+            passwords = self.df['PASSWORD'].tolist()
+
+            # iterate through the records
+            for i in range(len(emails)):
+                mail = outlook.CreateItem(0)
+
+                # Code to assign the sending account
+                mail._oleobj_.Invoke(*(64209, 0, 8, 0, send_account))
+
+                # for every record get the name and the email addresses
+                first_name = first_names[i]
+                username = usernames[i]
+                email = emails[i]
+                password = passwords[i]
+
+                # the message to be emailed
+                mail.To = email
+                mail.Subject = f'User Account Created for {username}'
+                mail.HTMLBody = (f"""Hello {first_name},<br><br>
+                     Your account has been created.<br><br>
+                     Please see below for your username and temporary password:<br><br>
+                     Username: {username}<br>
+                     Password: {password}<br><br>
+                     Please note: you will have to change your password upon logging in to ECCO<br><br><br>
+                     Best Regards, <br><br>
+                     <strong>Critical Logistics Management</strong>
+                     <strong><p style='color:red;font-size:.7rem'>Expeditors Carrier Capacity Optimization</p><strong><br><br>
+                     <strong>Email</strong> eccosupport@expeditors.com <br><br>
+                     <a href='https://www.expeditors.com'>
+                     <img src ='https://info.expeditors.com/hubfs/without%20tag%20line.gif', alt = 'Expeditors Logo no tag', width = '150px'> 
+                     </a>
+                     """)
+                mail.BCC = 'eccosupport@expeditors.com'
+
+                mail.Send()
+
+        send_email()
+
         self.text.insert('insert', '\n' + 'Emails Sent')
 
 # --- main ---
